@@ -1,0 +1,9 @@
+PyQt6>=6.6.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+faster-whisper>=1.0.0
+sounddevice>=0.4.6
+keyboard>=0.13.5
+apscheduler>=3.10.4
+psutil>=5.9.0
+pyinstaller>=6.0.0
