@@ -28,8 +28,15 @@ class TrayManager(QSystemTrayIcon):
         if icon_path.exists():
             self.setIcon(QIcon(str(icon_path)))
         else:
-            # Если иконки нет, используем стандартную иконку
-            self.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+            # Если иконки нет, используем стандартную иконку через QApplication
+            try:
+                app = QApplication.instance()
+                if app and app.style():
+                    std_icon = app.style().standardIcon(app.style().StandardPixmap.SP_ComputerIcon)
+                    if not std_icon.isNull():
+                        self.setIcon(std_icon)
+            except Exception as e:
+                print(f"⚠️  Не удалось загрузить иконку: {e}")
         
         # Контекстное меню
         menu = QMenu()
@@ -71,3 +78,4 @@ class TrayManager(QSystemTrayIcon):
     def show_notification(self, title: str, message: str, duration: int = 5000):
         """Показывает уведомление в системном трее"""
         self.showMessage(title, message, duration=duration)
+

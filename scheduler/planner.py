@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from apscheduler.schedulers.qt import QtScheduler
 from typing import List, Dict, Any, Optional
+import threading
 
 
 class DayPlanner:
@@ -15,15 +16,21 @@ class DayPlanner:
     def __init__(self, db_path: Path, tray_manager=None):
         self.db_path = db_path
         self.tray_manager = tray_manager
-        self.conn = None
+        self.local = threading.local()  # Потокобезопасное хранилище
         self.scheduler = QtScheduler()
         self._init_db()
         self._load_today_tasks()
     
+    def _get_connection(self):
+        """Получает соединение для текущего потока"""
+        if not hasattr(self.local, 'conn') or self.local.conn is None:
+            self.local.conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=10.0)
+        return self.local.conn
+    
     def _init_db(self):
         """Инициализирует БД для задач"""
-        self.conn = sqlite3.connect(str(self.db_path))
-        cursor = self.conn.cursor()
+        conn = self._get_connection()
+        cursor = conn.cursor()
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
@@ -37,7 +44,7 @@ class DayPlanner:
             )
         """)
         
-        self.conn.commit()
+        conn.commit()
     
     def add_task(self, title: str, time: str, repeat: str = "once") -> bool:
         """
@@ -52,7 +59,8 @@ class DayPlanner:
             True если успешно
         """
         try:
-            cursor = self.conn.cursor()
+            conn = self._get_connection()
+            cursor = conn.cursor()
             today = datetime.now().date()
             
             cursor.execute("""
@@ -60,7 +68,7 @@ class DayPlanner:
                 VALUES (?, ?, ?, ?)
             """, (title, time, repeat, today))
             
-            self.conn.commit()
+            conn.commit()
             
             # Регистрируем в scheduler
             self._schedule_task(title, time)
@@ -73,7 +81,8 @@ class DayPlanner:
     def get_today(self) -> List[Dict[str, Any]]:
         """Получает все задачи на сегодня"""
         try:
-            cursor = self.conn.cursor()
+            conn = self._get_connection()
+            cursor = conn.cursor()
             today = datetime.now().date()
             
             cursor.execute("""
@@ -101,9 +110,10 @@ class DayPlanner:
     def mark_done(self, task_id: int) -> bool:
         """Отмечает задачу как выполненную"""
         try:
-            cursor = self.conn.cursor()
+            conn = self._get_connection()
+            cursor = conn.cursor()
             cursor.execute("UPDATE tasks SET done = 1 WHERE id = ?", (task_id,))
-            self.conn.commit()
+            conn.commit()
             return True
         except Exception as e:
             print(f"❌ Ошибка отметки задачи: {e}")
@@ -148,8 +158,12 @@ class DayPlanner:
             self.scheduler.shutdown()
             print("✅ Планировщик остановлен")
     
-    def close(self):
+    def close(self) -> None:
         """Закрывает БД и планировщик"""
         self.stop()
-        if self.conn:
-            self.conn.close()
+        if hasattr(self.local, 'conn') and self.local.conn:
+            try:
+                self.local.conn.close()
+            except:
+                pass
+            self.local.conn = None

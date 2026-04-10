@@ -46,7 +46,7 @@ class MessageBubble(QFrame):
         label = QLabel(text)
         label.setWordWrap(True)
         label.setFont(QFont("Segoe UI", 10))
-        label.setTextColor(QColor(self.config.TEXT_PRIMARY))
+        label.setStyleSheet(f"color: {self.config.TEXT_PRIMARY};")
         
         if is_user:
             # Сообщение пользователя справа
@@ -322,8 +322,12 @@ class ChatWindow(QMainWindow):
     def _on_token(self, token: str, typing_widget):
         """Обработчик получения токена"""
         if not hasattr(self, '_streaming_message'):
-            typing_widget.stop()
-            typing_widget.deleteLater()
+            if typing_widget and typing_widget.isVisible():
+                typing_widget.stop()
+                try:
+                    typing_widget.deleteLater()
+                except:
+                    pass
             self.add_message("", is_user=False)
             self._streaming_message = self.chat_layout.itemAt(self.chat_layout.count() - 2).widget().findChild(QLabel)
         
@@ -334,11 +338,19 @@ class ChatWindow(QMainWindow):
         """Ответ получен полностью"""
         if hasattr(self, '_streaming_message'):
             delattr(self, '_streaming_message')
-        typing_widget.stop()
-        typing_widget.deleteLater()
+        if typing_widget:
+            try:
+                typing_widget.stop()
+                typing_widget.deleteLater()
+            except:
+                pass
     
     def _on_error(self, error: str, typing_widget):
         """Ошибка при выполнении"""
-        typing_widget.stop()
-        typing_widget.deleteLater()
+        if typing_widget:
+            try:
+                typing_widget.stop()
+                typing_widget.deleteLater()
+            except:
+                pass
         self.add_message(error, is_user=False)

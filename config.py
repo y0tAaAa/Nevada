@@ -18,7 +18,7 @@ class Config:
     
     # API Groq
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
-    model: str = os.getenv("NEVADA_MODEL", "qwen-qwq-32b")
+    model: str = os.getenv("NEVADA_MODEL", "gemma2-9b-it")
     api_base: str = "https://api.groq.com/openai/v1"
     
     # Приложение

@@ -92,6 +92,7 @@ class NevadaApp(QObject):
         
         return registry
     
+    def _setup_signals(self):
         """Подключает сигналы трея"""
         self.tray_manager.signals.open_chat.connect(self._show_chat_window)
         self.tray_manager.signals.open_dashboard.connect(self._open_dashboard)
