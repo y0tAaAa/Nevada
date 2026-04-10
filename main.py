@@ -19,9 +19,17 @@ def main():
     nevada = NevadaApp(app)
     nevada.start()
     
+    # Обработчик при завершении
+    def on_quit():
+        nevada.cleanup()
+        print("👋 Nevada завершил работу")
+    
+    app.aboutToQuit.connect(on_quit)
+    
     # Запускаем event loop
     sys.exit(app.exec())
 
 
 if __name__ == "__main__":
     main()
+
