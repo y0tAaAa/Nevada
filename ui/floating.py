@@ -3,7 +3,7 @@ FloatingWidget — маленький виджет для быстрого вв�
 """
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QScrollArea
-from PyQt6.QtCore import Qt, QRect, QSize
+from PyQt6.QtCore import Qt, QRect, QSize, QPoint
 from PyQt6.QtGui import QCursor, QFont
 from config import Config
 from agent.worker import AgentWorker
@@ -21,12 +21,64 @@ class FloatingWidget(QWidget):
         self.is_expanded = False
         self.messages = []
         
+        # Для перетаскивания
+        self.drag_pos = None
+        self.is_dragging = False
+        
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setStyleSheet(f"background-color: {self.config.BG_WINDOW};")
         
-        layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        # Главный layout
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Заголовок с кнопкой закрытия
+        title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(10, 6, 6, 6)
+        title_layout.setSpacing(0)
+        
+        title_label = QLineEdit()
+        title_label.setReadOnly(True)
+        title_label.setPlaceholderText("Nevada")
+        title_label.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: transparent;
+                color: {self.config.TEXT_PRIMARY};
+                border: none;
+                font-weight: bold;
+                font-size: 10pt;
+            }}
+        """)
+        title_label.setMaximumHeight(20)
+        
+        close_btn = QPushButton("✕")
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {self.config.TEXT_PRIMARY};
+                border: none;
+                font-weight: bold;
+                font-size: 12pt;
+                padding: 0px;
+                width: 20px;
+                height: 20px;
+            }}
+            QPushButton:hover {{
+                color: #ef4444;
+            }}
+        """)
+        close_btn.setFixedSize(20, 20)
+        close_btn.clicked.connect(self.close)
+        
+        title_layout.addWidget(title_label, 1)
+        title_layout.addWidget(close_btn, 0)
+        main_layout.addLayout(title_layout)
+        
+        # Основной content
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setSpacing(8)
         
         # Поле ввода
         self.input_field = QLineEdit()
@@ -75,7 +127,7 @@ class FloatingWidget(QWidget):
         input_layout.addWidget(mic_btn)
         input_layout.addWidget(send_btn)
         
-        layout.addLayout(input_layout)
+        content_layout.addLayout(input_layout)
         
         # Область для сообщений (скрыта по умолчанию)
         self.scroll = QScrollArea()
@@ -91,11 +143,40 @@ class FloatingWidget(QWidget):
         self.messages_container.setLayout(self.messages_layout)
         self.scroll.setWidget(self.messages_container)
         
-        layout.addWidget(self.scroll)
+        content_layout.addWidget(self.scroll)
+        main_layout.addLayout(content_layout)
         
-        self.setLayout(layout)
+        self.setLayout(main_layout)
         self.setMaximumWidth(360)
         self.setMinimumHeight(60)
+    
+    def mousePressEvent(self, event):
+        """Обработчик нажатия мыши для начала перетаскивания"""
+        # Если нажата левая кнопка мыши на заголовке
+        if event.button() == Qt.MouseButton.LeftButton and event.position().y() < 32:
+            self.is_dragging = True
+            self.drag_pos = event.globalPosition().toPoint() - self.pos()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+    
+    def mouseMoveEvent(self, event):
+        """Обработчик движения мыши для перетаскивания"""
+        if self.is_dragging and self.drag_pos:
+            new_pos = event.globalPosition().toPoint() - self.drag_pos
+            self.move(new_pos)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        """Обработчик отпускания мыши"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_dragging = False
+            self.drag_pos = None
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
     
     def show_at_cursor(self):
         """Показывает виджет у позиции курсора"""

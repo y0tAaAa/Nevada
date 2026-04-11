@@ -311,6 +311,7 @@ class ChatWindow(QMainWindow):
         # Отправляем агенту в отдельном потоке
         if self.agent_loop:
             self.worker = AgentWorker(self.agent_loop, text)
+            self.worker.thinking_received.connect(lambda t: self._on_thinking(t, typing))
             self.worker.token_received.connect(lambda tok: self._on_token(tok, typing))
             self.worker.response_ready.connect(lambda resp: self._on_response_ready(resp, typing))
             self.worker.error_occurred.connect(lambda err: self._on_error(err, typing))
@@ -319,15 +320,36 @@ class ChatWindow(QMainWindow):
             typing.stop()
             self.add_message("❌ Агент не инициализирован", is_user=False)
     
+    def _on_thinking(self, thinking_text: str, typing_widget):
+        """Обработчик промежуточного размышления"""
+        if not hasattr(self, '_thinking_label'):
+            # Первый раз - создаём thinking сообщение
+            try:
+                if typing_widget and typing_widget.isVisible():
+                    typing_widget.stop()
+                    typing_widget.deleteLater()
+            except:
+                pass
+            self.add_message("", is_user=False)
+            self._thinking_label = self.chat_layout.itemAt(self.chat_layout.count() - 2).widget().findChild(QLabel)
+            self._thinking_label.setStyleSheet(f"color: #888888; font-style: italic; padding: 8px; border-left: 3px solid #3b82f6;")
+        
+        if self._thinking_label:
+            if thinking_text == "":
+                # Очищаем thinking
+                delattr(self, '_thinking_label')
+            else:
+                self._thinking_label.setText(self._thinking_label.text() + thinking_text)
+    
     def _on_token(self, token: str, typing_widget):
         """Обработчик получения токена"""
         if not hasattr(self, '_streaming_message'):
-            if typing_widget and typing_widget.isVisible():
-                typing_widget.stop()
-                try:
+            try:
+                if typing_widget and typing_widget.isVisible():
+                    typing_widget.stop()
                     typing_widget.deleteLater()
-                except:
-                    pass
+            except:
+                pass
             self.add_message("", is_user=False)
             self._streaming_message = self.chat_layout.itemAt(self.chat_layout.count() - 2).widget().findChild(QLabel)
         
