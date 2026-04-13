@@ -15,13 +15,13 @@ from dotenv import load_dotenv
 
 def build_with_pyinstaller():
     """Сборка через PyInstaller"""
-    print("🔨 Сборка Nevada.exe через PyInstaller...")
+    print("[BUILD] Сборка Nevada.exe через PyInstaller...")
     
     try:
         # Проверяем PyInstaller
-        subprocess.run(["pyinstaller", "--version"], check=True, capture_output=True)
+        subprocess.run([sys.executable, "-m", "PyInstaller", "--version"], check=True, capture_output=True)
     except:
-        print("❌ PyInstaller не установлен. Установите: pip install pyinstaller")
+        print("[ERROR] PyInstaller не установлен. Установите: pip install pyinstaller")
         return False
     
     try:
@@ -29,51 +29,53 @@ def build_with_pyinstaller():
         icon_path = assets_path / "nevada.ico"
         icon_arg = f"--icon={icon_path}" if icon_path.exists() else ""
         
-        cmd = f"""
-pyinstaller \
-    --onefile \
-    --windowed \
-    --name Nevada \
-    --distpath ./dist \
-    --buildpath ./build \
-    --specpath ./build \
-    {icon_arg} \
-    --add-data "assets:assets" \
-    --hidden-import=PyQt6 \
-    --hidden-import=faster_whisper \
-    --hidden-import=sounddevice \
-    --hidden-import=keyboard \
-    --hidden-import=psutil \
-    --hidden-import=apscheduler \
-    main.py
-        """.replace("\n", " ")
+        cmd = [
+            sys.executable, "-m", "PyInstaller",
+            "--onefile",
+            "--windowed",
+            "--name", "Nevada",
+            "--distpath", "./dist",
+            "--workpath", "./build",
+            "--specpath", "./build",
+            "--hidden-import=PyQt6",
+            "--hidden-import=faster_whisper",
+            "--hidden-import=sounddevice",
+            "--hidden-import=keyboard",
+            "--hidden-import=psutil",
+            "--hidden-import=apscheduler",
+        ]
         
-        result = subprocess.run(cmd, shell=True)
+        if icon_arg:
+            cmd.append(icon_arg)
+        
+        cmd.append("main.py")
+        
+        result = subprocess.run(cmd)
         
         if result.returncode == 0:
-            print("✅ Сборка завершена!")
+            print("[OK] Сборка завершена!")
             exe_path = Path("dist") / "Nevada.exe"
             
             if exe_path.exists():
-                print(f"📦 Nevada.exe создана: {exe_path}")
+                print(f"[PACKAGE] Nevada.exe создана: {exe_path}")
                 _create_readme_and_env(exe_path.parent)
                 return True
     
     except Exception as e:
-        print(f"❌ Ошибка сборки: {e}")
+        print(f"[ERROR] Ошибка сборки: {e}")
     
     return False
 
 
 def build_with_nuitka():
     """Сборка через Nuitka"""
-    print("🔨 Сборка Nevada.exe через Nuitka...")
+    print("[BUILD] Сборка Nevada.exe через Nuitka...")
     
     try:
         # Проверяем Nuitka
         subprocess.run(["python", "-m", "nuitka", "--version"], check=True, capture_output=True)
     except:
-        print("❌ Nuitka не установлена. Установите: pip install nuitka")
+        print("[ERROR] Nuitka не установлена. Установите: pip install nuitka")
         return False
     
     try:
@@ -94,14 +96,14 @@ python -m nuitka \
         result = subprocess.run(cmd, shell=True)
         
         if result.returncode == 0:
-            print("✅ Сборка завершена!")
+            print("[OK] Сборка завершена!")
             exe_path = Path("dist") / "main.exe"
             
             if exe_path.exists():
                 # Переименовываем в Nevada.exe
                 nevada_exe = exe_path.parent / "Nevada.exe"
                 exe_path.rename(nevada_exe)
-                print(f"📦 Nevada.exe создана: {nevada_exe}")
+                print(f"[PACKAGE] Nevada.exe создана: {nevada_exe}")
                 _create_readme_and_env(nevada_exe.parent)
                 return True
     
@@ -157,7 +159,7 @@ NEVADA_MODEL=qwen-qwq-32b
         dest_env = dist_path / ".env"
         shutil.copy(project_env, dest_env)
     
-    print(f"📄 Созданы README.txt и .env.example в {dist_path}")
+    print(f"[INFO] Созданы README.txt и .env.example в {dist_path}")
 
 
 def clean():
@@ -183,7 +185,7 @@ def main():
     
     # Проверяем что мы в папке проекта
     if not Path("main.py").exists():
-        print("❌ Ошибка: main.py не найден")
+        print("[ERROR] Ошибка: main.py не найден")
         print("   Убедитесь, что вы в корневой папке Nevada")
         return
     
@@ -205,10 +207,53 @@ def main():
         success = build_with_pyinstaller()
     
     if success:
-        print("\n✅ Nevada собрана успешно!")
-        print("📦 Найти Nevada.exe в папке dist/")
+        print("\n[OK] Nevada собрана успешно!")
+        print("[PACKAGE] Найти Nevada.exe в папке dist/")
+        
+        # Создаём ярлык на рабочем столе
+        if sys.platform == "win32":
+            create_desktop_shortcut()
     else:
-        print("\n❌ Ошибка при сборке")
+        print("\n[ERROR] Ошибка при сборке")
+
+
+def create_desktop_shortcut():
+    """Создаёт ярлык Nevada.exe на рабочем столе"""
+    
+    try:
+        exe_path = Path("dist") / "Nevada.exe"
+        
+        if not exe_path.exists():
+            print("[WARNING] Nevada.exe не найден")
+            return
+        
+        desktop_path = Path.home() / "Desktop"
+        shortcut_path = desktop_path / "Nevada.lnk"
+        
+        # Используем Windows API для создания ярлычка
+        try:
+            from win32com.client import Dispatch
+            
+            shell = Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortCut(str(shortcut_path))
+            shortcut.TargetPath = str(exe_path.resolve())
+            shortcut.WorkingDirectory = str(exe_path.parent)
+            shortcut.Description = "Autonomous Desktop Assistant"
+            shortcut.IconLocation = str(exe_path.resolve())
+            shortcut.save()
+            
+            print(f"🔗 Ярлык создан на рабочем столе: {shortcut_path}")
+            
+        except ImportError:
+            # Альтернативный метод через простой текстовый файл
+            print("⚠️  pywin32 не установлен, создаю ярлычок вручную...")
+            print(f"   Для создания ярлычка:")
+            print(f"   1. Перейдите в папку: {exe_path.parent}")
+            print(f"   2. Перетащите Nevada.exe на рабочий стол")
+            print(f"   3. Выберите 'Создать ярлычок'")
+    
+    except Exception as e:
+        print(f"⚠️  Ошибка при создании ярлычка: {e}")
 
 
 if __name__ == "__main__":

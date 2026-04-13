@@ -17,12 +17,16 @@ def main():
     
     # Инициализируем Nevada
     nevada = NevadaApp(app)
-    nevada.start()
+    
+    # Запускаем приложение
+    if not nevada.start():
+        print("[ERROR] Nevada не удалось запустить")
+        return 1
     
     # Обработчик при завершении
     def on_quit():
         nevada.cleanup()
-        print("👋 Nevada завершил работу")
+        print("[OK] Nevada завершила работу")
     
     app.aboutToQuit.connect(on_quit)
     

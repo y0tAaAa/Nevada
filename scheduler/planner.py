@@ -75,7 +75,7 @@ class DayPlanner:
             
             return True
         except Exception as e:
-            print(f"❌ Ошибка добавления задачи: {e}")
+            print(f"[ERROR] Ошибка добавления задачи: {e}")
             return False
     
     def get_today(self) -> List[Dict[str, Any]]:
@@ -104,7 +104,35 @@ class DayPlanner:
             
             return tasks
         except Exception as e:
-            print(f"❌ Ошибка получения задач: {e}")
+            print(f"[ERROR] Ошибка получения задач: {e}")
+            return []
+    
+    def get_tasks_by_date(self, date_str: str) -> List[Dict[str, Any]]:
+        """Получает все задачи на конкретную дату (ISO format YYYY-MM-DD)"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT id, title, time, done FROM tasks
+                WHERE date_scheduled = ? 
+                ORDER BY time ASC
+            """, (date_str,))
+            
+            rows = cursor.fetchall()
+            tasks = [
+                {
+                    "id": row[0],
+                    "title": row[1],
+                    "time": row[2],
+                    "done": bool(row[3])
+                }
+                for row in rows
+            ]
+            
+            return tasks
+        except Exception as e:
+            print(f"[ERROR] Ошибка получения задач по дате: {e}")
             return []
     
     def mark_done(self, task_id: int) -> bool:
@@ -116,7 +144,7 @@ class DayPlanner:
             conn.commit()
             return True
         except Exception as e:
-            print(f"❌ Ошибка отметки задачи: {e}")
+            print(f"[ERROR] Ошибка отметки задачи: {e}")
             return False
     
     def _schedule_task(self, title: str, time_str: str):
@@ -126,9 +154,9 @@ class DayPlanner:
             
             def notify():
                 if self.tray_manager:
-                    self.tray_manager.show_notification("📋 Напоминание:", title, duration=10000)
+                    self.tray_manager.show_notification("[REMINDER]", title, duration=10000)
                 else:
-                    print(f"🔔 Напоминание: {title}")
+                    print(f"[REMINDER] {title}")
             
             self.scheduler.add_job(
                 notify,
@@ -138,7 +166,7 @@ class DayPlanner:
                 id=f"task_{title}_{time_str}"
             )
         except Exception as e:
-            print(f"❌ Ошибка планирования: {e}")
+            print(f"[ERROR] Ошибка планирования: {e}")
     
     def _load_today_tasks(self):
         """Загружает и регистрирует все задачи на сегодня"""
@@ -150,13 +178,13 @@ class DayPlanner:
         """Запускает планировщик"""
         if not self.scheduler.running:
             self.scheduler.start()
-            print("✅ Планировщик запущен")
+            print("[OK] Планировщик запущен")
     
     def stop(self):
         """Останавливает планировщик"""
         if self.scheduler.running:
             self.scheduler.shutdown()
-            print("✅ Планировщик остановлен")
+            print("[OK] Планировщик остановлен")
     
     def close(self) -> None:
         """Закрывает БД и планировщик"""
