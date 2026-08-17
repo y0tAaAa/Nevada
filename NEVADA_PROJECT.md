@@ -91,7 +91,7 @@ nevada/
 |------|-----------|
 | `main.py` | Точка входа. Создаёт `QApplication`, запускает `NevadaApp`, устанавливает `app.setQuitOnLastWindowClosed(False)` чтобы приложение жило в трее после закрытия окна |
 | `build.py` | Скрипт сборки проекта в `Nevada.exe`. Поддерживает два режима: `python build.py` (PyInstaller) и `python build.py --nuitka` (Nuitka). Автоматически создаёт `.env.example` и `README.txt` рядом с `.exe` |
-| `config.py` | Dataclass `Config` со всеми настройками: `groq_api_key`, `model`, `system_name = "Nevada"`, `language = "ru"`, `hotkey = "ctrl+shift+space"`, `autostart = True`, `db_path`. Читает значения из `.env` через `python-dotenv` |
+| `config.py` | Dataclass `Config`. **Провайдер модели переключается через `.env`** — `NEVADA_PROVIDER=groq|nvidia`, свой адрес через `NEVADA_API_BASE` (любой OpenAI-совместимый API, включая локальную Ollama). Адреса и дефолтные модели в `PROVIDER_BASE_URLS` / `PROVIDER_DEFAULT_MODELS`. `validate()` предупреждает, если имя модели не соответствует провайдеру. Остальные настройки: `groq_api_key`, `model`, `system_name = "Nevada"`, `language = "ru"`, `hotkey = "ctrl+shift+space"`, `autostart = True`, `db_path`. Читает значения из `.env` через `python-dotenv` |
 | `.env` | Секреты: `GROQ_API_KEY`, `NEVADA_AUTOSTART`, `NEVADA_HOTKEY`. Не коммитить в git |
 | `.env.example` | Шаблон `.env` без реальных значений. Коммитить в git |
 | `requirements.txt` | Зависимости: `PyQt6`, `openai`, `python-dotenv`, `faster-whisper`, `sounddevice`, `pyttsx3`, `keyboard`, `pywin32`, `apscheduler`, `pyinstaller` |

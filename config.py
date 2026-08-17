@@ -8,6 +8,19 @@ from dotenv import load_dotenv
 import os
 
 
+# Известные OpenAI-совместимые провайдеры: адрес и модель по умолчанию.
+# Свой вариант задаётся через NEVADA_API_BASE и NEVADA_MODEL.
+PROVIDER_BASE_URLS = {
+    "groq": "https://api.groq.com/openai/v1",
+    "nvidia": "https://integrate.api.nvidia.com/v1",
+}
+
+PROVIDER_DEFAULT_MODELS = {
+    "groq": "llama-3.3-70b-versatile",
+    "nvidia": "meta/llama-3.3-70b-instruct",
+}
+
+
 @dataclass
 class Config:
     """Настройки приложения Nevada"""
@@ -16,10 +29,25 @@ class Config:
     env_path = Path(__file__).parent / ".env"
     load_dotenv(dotenv_path=env_path, override=True)
     
-    # API Groq
-    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
-    model: str = os.getenv("NEVADA_MODEL", "llama-3.3-70b-versatile")
-    api_base: str = "https://api.groq.com/openai/v1"
+    # Провайдер модели. Любой OpenAI-совместимый API: Groq, NVIDIA NIM и т.п.
+    # Переключение — только через .env, код менять не нужно.
+    provider: str = os.getenv("NEVADA_PROVIDER", "groq").strip().lower()
+
+    # Ключ: сначала смотрим общий NEVADA_API_KEY, потом ключ конкретного провайдера
+    groq_api_key: str = (
+        os.getenv("NEVADA_API_KEY", "")
+        or os.getenv("NVIDIA_API_KEY", "")
+        or os.getenv("GROQ_API_KEY", "")
+    )
+
+    model: str = os.getenv("NEVADA_MODEL", "") or PROVIDER_DEFAULT_MODELS.get(
+        os.getenv("NEVADA_PROVIDER", "groq").strip().lower(), "llama-3.3-70b-versatile"
+    )
+
+    api_base: str = os.getenv("NEVADA_API_BASE", "") or PROVIDER_BASE_URLS.get(
+        os.getenv("NEVADA_PROVIDER", "groq").strip().lower(),
+        "https://api.groq.com/openai/v1",
+    )
     
     # Приложение
     system_name: str = "Nevada"
@@ -63,6 +91,25 @@ class Config:
     def validate(self) -> bool:
         """Проверяет обязательные настройки"""
         if not self.groq_api_key:
-            print("⚠️  GROQ_API_KEY не установлен в .env")
+            expected = {
+                "groq": "GROQ_API_KEY",
+                "nvidia": "NVIDIA_API_KEY",
+            }.get(self.provider, "NEVADA_API_KEY")
+            print(f"⚠️  Ключ API не установлен в .env (ожидается {expected} или NEVADA_API_KEY)")
             return False
+
+        # У NVIDIA идентификаторы моделей с namespace (meta/llama-3.3-70b-instruct),
+        # у Groq — без. Частая ошибка при переключении провайдера: забыть сменить модель.
+        if self.provider == "nvidia" and "/" not in self.model:
+            print(
+                f"⚠️  Провайдер nvidia, но модель «{self.model}» похожа на имя Groq. "
+                "У NVIDIA идентификаторы вида meta/llama-3.3-70b-instruct — "
+                "поправьте NEVADA_MODEL в .env"
+            )
+        elif self.provider == "groq" and "/" in self.model and not self.model.startswith("openai/"):
+            print(
+                f"⚠️  Провайдер groq, но модель «{self.model}» похожа на имя NVIDIA. "
+                "Проверьте NEVADA_MODEL в .env"
+            )
+
         return True

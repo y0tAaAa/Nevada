@@ -20,6 +20,7 @@ PROJECT_ROOT = TESTS_DIR.parent
 # Не требуют сети, токенов и не трогают окна — можно гонять всегда
 OFFLINE_TESTS = [
     "test_tools.py",         # инструменты shell/file и подтверждение через confirm
+    "test_provider_config.py",  # переключение провайдера модели через .env
     "test_agent_loop.py",    # агентный цикл, фильтр тегов, чистота памяти
     "test_fact_guard.py",    # страж выдумок
     "test_confirm_gate.py",  # гейт подтверждения (модель не обойдёт)
