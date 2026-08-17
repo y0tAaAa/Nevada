@@ -6,6 +6,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+import sys
+
+
+def _base_dir() -> Path:
+    """
+    Папка, где лежат .env и база данных.
+
+    В обычном запуске — корень проекта. В собранном .exe модули лежат внутри
+    _internal, поэтому пути нужно считать от самого исполняемого файла,
+    иначе приложение не найдёт .env, который пользователь положил рядом с exe.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent
+
+
+BASE_DIR = _base_dir()
 
 
 # Известные OpenAI-совместимые провайдеры: адрес и модель по умолчанию.
@@ -26,7 +43,7 @@ class Config:
     """Настройки приложения Nevada"""
     
     # Загружаем .env файл
-    env_path = Path(__file__).parent / ".env"
+    env_path = BASE_DIR / ".env"
     load_dotenv(dotenv_path=env_path, override=True)
     
     # Провайдер модели. Любой OpenAI-совместимый API: Groq, NVIDIA NIM и т.п.
@@ -60,7 +77,7 @@ class Config:
     autostart: bool = os.getenv("NEVADA_AUTOSTART", "true").lower() == "true"
     
     # База данных
-    db_path: Path = Path(__file__).parent / "nevada.db"
+    db_path: Path = BASE_DIR / "nevada.db"
     
     # Цвета — тёмная индиго-тема: компоновка с градиентным «hero»,
     # крупным приветствием и мягкими карточками

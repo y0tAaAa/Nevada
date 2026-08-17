@@ -123,7 +123,13 @@ def _create_readme_and_env(dist_path: Path):
 Для запуска приложения:
 1. Создайте файл .env в той же папке
 2. Скопируйте содержимое из .env.example
-3. Добавьте ваш Groq API ключ: https://console.groq.com/keys
+3. Добавьте ключ API одного из провайдеров:
+   • Groq (по умолчанию): https://console.groq.com/keys
+     GROQ_API_KEY=gsk_...
+   • NVIDIA NIM: https://build.nvidia.com
+     NEVADA_PROVIDER=nvidia
+     NVIDIA_API_KEY=nvapi-...
+     NEVADA_MODEL=meta/llama-3.3-70b-instruct
 4. Запустите Nevada.exe
 
 Горячая клавиша по умолчанию: Ctrl+Shift+Space
@@ -141,25 +147,26 @@ def _create_readme_and_env(dist_path: Path):
     with open(readme_path, 'w', encoding='utf-8') as f:
         f.write(readme_content)
     
-    # .env.example
-    env_content = """GROQ_API_KEY=gsk_your_api_key_here
-NEVADA_AUTOSTART=true
-NEVADA_HOTKEY=ctrl+shift+space
-NEVADA_LANGUAGE=ru
-NEVADA_MODEL=qwen-qwq-32b
-"""
-    
+    # .env.example — берём актуальный шаблон из проекта, чтобы он не устаревал
+    project_example = Path(__file__).parent / ".env.example"
     env_path = dist_path / ".env.example"
-    with open(env_path, 'w', encoding='utf-8') as f:
-        f.write(env_content)
-    
-    # Копируем .env если существует
-    project_env = Path(__file__).parent / ".env"
-    if project_env.exists():
-        dest_env = dist_path / ".env"
-        shutil.copy(project_env, dest_env)
-    
+    if project_example.exists():
+        shutil.copy(project_example, env_path)
+    else:
+        env_path.write_text(
+            "NEVADA_PROVIDER=groq\n"
+            "GROQ_API_KEY=gsk_your_api_key_here\n"
+            "NEVADA_MODEL=llama-3.3-70b-versatile\n"
+            "NEVADA_AUTOSTART=true\n"
+            "NEVADA_HOTKEY=ctrl+shift+space\n"
+            "NEVADA_LANGUAGE=ru\n",
+            encoding="utf-8",
+        )
+
+    # ВАЖНО: рабочий .env с настоящим API-ключом в сборку НЕ копируем.
+    # Иначе ключ уедет вместе с папкой dist при любой передаче сборки.
     print(f"[INFO] Созданы README.txt и .env.example в {dist_path}")
+    print("[INFO] Рабочий .env намеренно не скопирован — ключ не должен попасть в сборку")
 
 
 def clean():

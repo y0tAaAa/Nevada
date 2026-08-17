@@ -28,7 +28,12 @@ class HotkeyManager(QThread):
                 self.msleep(100)
         
         except Exception as e:
-            print(f"❌ Ошибка регистрации хоткея: {str(e)}")
+            # Сообщение об ошибке не должно само уронить поток
+            # (в собранном .exe print с эмодзи падал на кодировке консоли)
+            try:
+                print(f"[ERROR] Ошибка регистрации хоткея: {e}")
+            except Exception:
+                pass
     
     def _on_hotkey_pressed(self):
         """Вызывается при нажатии на хоткей"""
