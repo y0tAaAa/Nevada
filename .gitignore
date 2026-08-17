@@ -63,3 +63,6 @@ build/
 *.tmp
 *.temp
 .cache/
+
+# Вывод тестов (скриншоты предпросмотра)
+tests/_output/
