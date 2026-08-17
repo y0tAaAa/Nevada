@@ -50,6 +50,7 @@ check("текст вокруг разорванных тегов уцелел", 
 vis3 = run_filter(["5 ", "< ", "10 и a<b"])
 check("обычный символ '<' не теряется", "<" in vis3 and "a<b" in vis3, f"got={vis3!r}")
 
+
 print("\n=== 2. Агентный цикл: инструмент выполняется и его вывод уходит в модель ===")
 
 openai_mod = types.ModuleType("openai")
@@ -98,6 +99,24 @@ openai_mod.APIError = APIError
 sys.modules["openai"] = openai_mod
 
 from agent.loop import AgentLoop
+
+print("\n=== 1b. Восстановление тега, обрезанного стоп-последовательностью ===")
+# Провайдеры обрезают стоп-строку по-разному: Groq удаляет её целиком,
+# NVIDIA оставляет обрывок «</input». Слепое дописывание давало «</input</input>»,
+# разбор ломался, и инструмент молча не выполнялся.
+from agent.loop import _restore_closing_tag
+
+for label, raw in [
+    ("Groq: удалил целиком", 'x <tool>system</tool><input>{"action": "get_info"}'),
+    ("NVIDIA: обрывок </input", 'x <tool>system</tool>\n<input>{"action": "get_info"}</input'),
+    ("обрывок </inp", 'x <tool>system</tool><input>{"action": "get_info"}</inp'),
+    ("обрывок <", 'x <tool>system</tool><input>{"action": "get_info"}<'),
+    ("тег целый", 'x <tool>system</tool><input>{"action": "get_info"}</input>'),
+]:
+    parsed = parse_tool_call(_restore_closing_tag(raw))
+    check(f"разбирается: {label}", parsed == ("system", {"action": "get_info"}), f"got={parsed}")
+
+check("текст без вызова не портится", _restore_closing_tag("обычный ответ") == "обычный ответ")
 
 tool_calls = []
 

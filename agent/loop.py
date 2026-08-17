@@ -106,6 +106,32 @@ def _looks_like_unverified_facts(text: str) -> bool:
     return bool(_FACT_KEYWORDS.search(text))
 
 
+CLOSING_TAG = "</input>"
+
+
+def _restore_closing_tag(text: str) -> str:
+    """
+    Возвращает на место закрывающий тег, срезанный стоп-последовательностью.
+
+    Провайдеры обрезают по-разному: Groq удаляет стоп-строку целиком, а NVIDIA
+    оставляет её обрывок («…}</input»). Слепое дописывание тега давало
+    «</input</input>», разбор ломался и инструмент не выполнялся.
+    """
+    if "<tool>" not in text or "<input>" not in text:
+        return text
+    if CLOSING_TAG in text:
+        return text
+
+    stripped = text.rstrip()
+    # Срезаем незавершённый хвост закрывающего тега, если он есть
+    for length in range(len(CLOSING_TAG) - 1, 0, -1):
+        if stripped.endswith(CLOSING_TAG[:length]):
+            stripped = stripped[:-length]
+            break
+
+    return stripped + CLOSING_TAG
+
+
 def _sanitize_history(history: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
     Убирает из истории ассистентские реплики со служебными блоками вывода
@@ -269,10 +295,9 @@ class AgentLoop:
                 yield error_msg
                 break
 
-            # Стоп-последовательность в ответ не включается — возвращаем закрывающий
-            # тег на место, иначе parse_tool_call не распознает вызов
-            if "<tool>" in raw_response and "<input>" in raw_response and "</input>" not in raw_response:
-                raw_response += "</input>"
+            # Стоп-последовательность обрезает закрывающий тег — возвращаем его
+            # на место (у разных провайдеров обрезка отличается, см. функцию)
+            raw_response = _restore_closing_tag(raw_response)
 
             # Есть ли вызов инструмента?
             tool_call = parse_tool_call(raw_response) if self.tool_registry else None
