@@ -65,11 +65,14 @@ class ToolRegistry:
         """
         if not self.tools:
             return "Инструменты: не зарегистрировано"
-        
+
         lines = ["Доступные инструменты:"]
         for name, desc in self.descriptions.items():
-            lines.append(f"  • {name}: {desc}")
-        
+            # Если инструмент отдаёт описание динамически (например, каталог
+            # навыков), берём свежее значение, а не сохранённое при регистрации
+            live = getattr(self.tools.get(name), "description", None)
+            lines.append(f"  • {name}: {live or desc}")
+
         return "\n".join(lines)
     
     def list(self) -> list:

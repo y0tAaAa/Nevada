@@ -80,7 +80,7 @@ class APISettingsTab(QWidget):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: #2563eb;
+                background-color: #115e59;
             }}
         """)
         test_btn.clicked.connect(self._test_api_key)
@@ -133,7 +133,7 @@ class HotkeySettingsTab(QWidget):
         layout.addWidget(self.hotkey_input)
         
         info = QLabel("💡 Формат: ctrl, shift, alt + буква/цифра\nПримеры: ctrl+a, alt+shift+q")
-        info.setStyleSheet("color: #888888; padding: 8px; font-size: 9pt;")
+        info.setStyleSheet("color: #66605a; padding: 8px; font-size: 9pt;")
         layout.addWidget(info)
         
         layout.addStretch()
@@ -229,7 +229,7 @@ class SettingsDialog(QDialog):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: #2563eb;
+                background-color: #115e59;
             }}
         """)
         save_btn.clicked.connect(self._save_settings)

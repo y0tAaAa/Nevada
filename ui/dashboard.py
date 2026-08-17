@@ -118,11 +118,11 @@ class Dashboard(QMainWindow):
                     self.tasks_panel.content_layout.addWidget(task_label)
             else:
                 empty = QLabel("Нет задач на сегодня")
-                empty.setStyleSheet(f"color: #888888; padding: 4px;")
+                empty.setStyleSheet(f"color: #66605a; padding: 4px;")
                 self.tasks_panel.content_layout.addWidget(empty)
         else:
             info = QLabel("📅 Планировщик недоступен")
-            info.setStyleSheet(f"color: #888888; padding: 4px;")
+            info.setStyleSheet(f"color: #66605a; padding: 4px;")
             self.tasks_panel.content_layout.addWidget(info)
     
     def _update_history(self):
@@ -149,11 +149,11 @@ class Dashboard(QMainWindow):
                     self.history_panel.content_layout.addWidget(dialog_label)
             else:
                 empty = QLabel("Нет истории диалогов")
-                empty.setStyleSheet(f"color: #888888; padding: 4px;")
+                empty.setStyleSheet(f"color: #66605a; padding: 4px;")
                 self.history_panel.content_layout.addWidget(empty)
         else:
             info = QLabel("💾 Память недоступна")
-            info.setStyleSheet(f"color: #888888; padding: 4px;")
+            info.setStyleSheet(f"color: #66605a; padding: 4px;")
             self.history_panel.content_layout.addWidget(info)
     
     def _update_status(self):

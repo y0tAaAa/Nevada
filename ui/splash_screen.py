@@ -23,14 +23,14 @@ class SplashScreen(QWidget):
         # Размер
         self.setFixedSize(400, 300)
         
-        # Стиль (используем жёстко заданные цвета вместо Config)
-        bg_color = "#0d0f14"
-        self.setStyleSheet(f"""
-            SplashScreen {{
-                background-color: {bg_color};
-                border: 2px solid #3b82f6;
-                border-radius: 8px;
-            }}
+        # Стиль в духе TeacherSupport: светлая карточка с бирюзовым акцентом
+        self.setStyleSheet("""
+            SplashScreen {
+                background-color: #fffdfa;
+                border: 1px solid #ded8cd;
+                border-radius: 24px;
+            }
+            QLabel { background: transparent; }
         """)
         
         layout = QVBoxLayout()
@@ -40,29 +40,30 @@ class SplashScreen(QWidget):
         # Название приложения
         title = QLabel("Nevada")
         title.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
-        title.setStyleSheet("color: #3b82f6;")
+        title.setStyleSheet("color: #0f172a;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-        
+
         # Статус
         self.status_label = QLabel("Инициализация...")
         self.status_label.setFont(QFont("Segoe UI", 11))
-        self.status_label.setStyleSheet("color: #d1d5db;")
+        self.status_label.setStyleSheet("color: #66605a;")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.status_label)
-        
+
         # Прогресс-бар
         self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(8)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                background-color: #1a1d26;
-                border: 1px solid #374151;
+                background-color: #efeae1;
+                border: none;
                 border-radius: 4px;
-                height: 6px;
             }
             QProgressBar::chunk {
-                background-color: #3b82f6;
-                border-radius: 2px;
+                background-color: #0f766e;
+                border-radius: 4px;
             }
         """)
         self.progress_bar.setRange(0, 100)
@@ -72,7 +73,7 @@ class SplashScreen(QWidget):
         # Подробно
         self.detail_label = QLabel("")
         self.detail_label.setFont(QFont("Segoe UI", 9))
-        self.detail_label.setStyleSheet("color: #6b7280;")
+        self.detail_label.setStyleSheet("color: #8a8174;")
         self.detail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.detail_label)
         

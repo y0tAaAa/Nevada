@@ -13,6 +13,7 @@ class TraySignals(QObject):
     open_chat = pyqtSignal()
     open_dashboard = pyqtSignal()
     open_settings = pyqtSignal()
+    open_hud = pyqtSignal()
     quit_app = pyqtSignal()
 
 
@@ -52,7 +53,11 @@ class TrayManager(QSystemTrayIcon):
         action_settings = QAction("⚙️ Настройки")
         action_settings.triggered.connect(self.signals.open_settings.emit)
         menu.addAction(action_settings)
-        
+
+        action_hud = QAction("🎯 Jarvis HUD")
+        action_hud.triggered.connect(self.signals.open_hud.emit)
+        menu.addAction(action_hud)
+
         menu.addSeparator()
         
         action_exit = QAction("❌ Выход")

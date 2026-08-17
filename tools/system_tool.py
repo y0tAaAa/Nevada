@@ -2,6 +2,8 @@
 SystemTool — получение информации о системе
 """
 
+import subprocess
+
 import psutil
 import platform
 from datetime import datetime
@@ -12,8 +14,15 @@ class SystemTool:
     
     def __init__(self):
         self.description = (
-            "Получение информации о системе: имя ПК, ОС, использование CPU/RAM, "
-            "список запущенных процессов, текущее время и дата."
+            "Информация о системе. Параметр action — ТОЛЬКО одно из:\n"
+            "      • get_info — имя ПК, ОС, ядра и загрузка CPU, использование RAM, аптайм\n"
+            "      • get_hardware — комплектующие: процессор, видеокарты, модули ОЗУ,\n"
+            "        материнская плата, накопители (для вопросов «какое у меня железо»)\n"
+            "      • list_processes — топ-10 процессов по памяти\n"
+            "      • get_time — текущие дата и время\n"
+            "      • get_disk — разделы дисков: всего / занято / свободно\n"
+            "      Пример: <input>{\"action\": \"get_hardware\"}</input>\n"
+            "      Температуру и напряжение этот инструмент НЕ даёт."
         )
     
     def execute(self, action: str = "get_info") -> str:
@@ -29,6 +38,8 @@ class SystemTool:
         try:
             if action == "get_info":
                 return self._get_info()
+            elif action == "get_hardware":
+                return self._get_hardware()
             elif action == "list_processes":
                 return self._list_processes()
             elif action == "get_time":
@@ -80,6 +91,60 @@ class SystemTool:
         except Exception as e:
             return f"❌ Ошибка получения системной информации: {str(e)}"
     
+    def _run_powershell(self, script: str, timeout: int = 25) -> str:
+        """Выполняет PowerShell-скрипт и возвращает вывод (в OEM-кодировке консоли)"""
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            text=True,
+            encoding="oem",
+            errors="replace",
+            timeout=timeout,
+        )
+        return (result.stdout or "").strip()
+
+    def _get_hardware(self) -> str:
+        """
+        Реальные комплектующие через CIM (wmic в Windows 11 24H2 удалён).
+        Каждый блок запрашивается отдельно, чтобы сбой одного не убивал весь ответ.
+        """
+        queries = [
+            ("Процессор", "Get-CimInstance Win32_Processor | "
+                          "ForEach-Object { \"$($_.Name) | ядер: $($_.NumberOfCores) | \" + "
+                          "\"потоков: $($_.NumberOfLogicalProcessors) | $([math]::Round($_.MaxClockSpeed/1000,2)) ГГц\" }"),
+            ("Видеокарты", "Get-CimInstance Win32_VideoController | "
+                           "ForEach-Object { \"$($_.Name) | $([math]::Round($_.AdapterRAM/1GB,1)) ГБ\" }"),
+            ("Оперативная память", "Get-CimInstance Win32_PhysicalMemory | "
+                                   "ForEach-Object { \"$([math]::Round($_.Capacity/1GB,0)) ГБ | \" + "
+                                   "\"$($_.Speed) МГц | $($_.Manufacturer)\" }"),
+            ("Материнская плата", "Get-CimInstance Win32_BaseBoard | "
+                                  "ForEach-Object { \"$($_.Manufacturer) $($_.Product)\" }"),
+            ("Накопители", "Get-CimInstance Win32_DiskDrive | "
+                           "ForEach-Object { \"$($_.Model) | $([math]::Round($_.Size/1GB,0)) ГБ\" }"),
+        ]
+
+        lines = ["КОМПЛЕКТУЮЩИЕ (данные системы):"]
+        for title, script in queries:
+            try:
+                output = self._run_powershell(script)
+            except subprocess.TimeoutExpired:
+                output = ""
+                lines.append(f"{title}: превышено время ожидания")
+                continue
+            except Exception as e:
+                lines.append(f"{title}: ошибка запроса ({e})")
+                continue
+
+            if output:
+                for i, entry in enumerate(output.splitlines()):
+                    entry = entry.strip()
+                    if entry:
+                        lines.append(f"{title if i == 0 else ' ' * len(title)}: {entry}")
+            else:
+                lines.append(f"{title}: данные недоступны")
+
+        return "\n".join(lines)
+
     def _list_processes(self) -> str:
         """Список запущенных процессов"""
         try:

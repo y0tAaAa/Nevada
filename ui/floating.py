@@ -2,22 +2,27 @@
 FloatingWidget — маленький виджет для быстрого ввода у курсора
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QScrollArea
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QScrollArea, QLabel
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint
 from PyQt6.QtGui import QCursor, QFont
 from config import Config
 from agent.worker import AgentWorker
-from ui.chat_window import MessageBubble
+from ui.widgets import MessageBubble
+from voice.voice_worker import ListenWorker
 
 
 class FloatingWidget(QWidget):
     """Маленький виджет для быстрого ввода и просмотра последних сообщений"""
-    
-    def __init__(self, agent_loop=None):
+
+    def __init__(self, agent_loop=None, voice_manager=None, confirm_broker=None):
         super().__init__()
         self.config = Config()
         self.agent_loop = agent_loop
+        self.voice_manager = voice_manager
+        self.confirm_broker = confirm_broker
         self.worker = None
+        self.listen_worker = None
+        self._pending_listen = False
         self.is_expanded = False
         self.messages = []
         
@@ -26,7 +31,13 @@ class FloatingWidget(QWidget):
         self.is_dragging = False
         
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setStyleSheet(f"background-color: {self.config.BG_WINDOW};")
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {self.config.CARD};
+                color: {self.config.TEXT_PRIMARY};
+                font-family: "Segoe UI Variable", "Bahnschrift", "Segoe UI";
+            }}
+        """)
         
         # Главный layout
         main_layout = QVBoxLayout()
@@ -38,34 +49,31 @@ class FloatingWidget(QWidget):
         title_layout.setContentsMargins(10, 6, 6, 6)
         title_layout.setSpacing(0)
         
-        title_label = QLineEdit()
-        title_label.setReadOnly(True)
-        title_label.setPlaceholderText("Nevada")
+        title_label = QLabel("Nevada")
         title_label.setStyleSheet(f"""
-            QLineEdit {{
+            QLabel {{
                 background-color: transparent;
-                color: {self.config.TEXT_PRIMARY};
+                color: {self.config.INK};
                 border: none;
                 font-weight: bold;
                 font-size: 10pt;
             }}
         """)
         title_label.setMaximumHeight(20)
-        
+
         close_btn = QPushButton("✕")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                color: {self.config.TEXT_PRIMARY};
+                color: {self.config.TEXT_MUTED};
                 border: none;
                 font-weight: bold;
                 font-size: 12pt;
                 padding: 0px;
-                width: 20px;
-                height: 20px;
             }}
             QPushButton:hover {{
-                color: #ef4444;
+                color: {self.config.DANGER};
             }}
         """)
         close_btn.setFixedSize(20, 20)
@@ -87,11 +95,13 @@ class FloatingWidget(QWidget):
             QLineEdit {{
                 background-color: {self.config.BG_INPUT};
                 color: {self.config.TEXT_PRIMARY};
-                border: 1px solid {self.config.BORDER};
-                border-radius: 4px;
-                padding: 6px;
-                font-family: 'Segoe UI';
+                border: 1px solid #d8d1c5;
+                border-radius: 12px;
+                padding: 8px 11px;
                 font-size: 9pt;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {self.config.ACCENT};
             }}
         """)
         self.input_field.setMinimumWidth(300)
@@ -103,13 +113,13 @@ class FloatingWidget(QWidget):
                 background-color: {self.config.ACCENT};
                 color: white;
                 border: none;
-                border-radius: 4px;
+                border-radius: 11px;
                 padding: 4px 8px;
                 font-weight: bold;
                 font-size: 8pt;
             }}
             QPushButton:hover {{
-                background-color: #2563eb;
+                background-color: {self.config.ACCENT_DARK};
             }}
         """
         
@@ -118,20 +128,21 @@ class FloatingWidget(QWidget):
         send_btn.setFixedSize(32, 32)
         send_btn.clicked.connect(self._send_message)
         
-        mic_btn = QPushButton("🎤")
-        mic_btn.setStyleSheet(btn_style)
-        mic_btn.setFixedSize(32, 32)
-        
+        self.mic_btn = QPushButton("🎤")
+        self.mic_btn.setStyleSheet(btn_style)
+        self.mic_btn.setFixedSize(32, 32)
+        self.mic_btn.clicked.connect(self._on_mic_clicked)
+
         input_layout = QHBoxLayout()
         input_layout.addWidget(self.input_field)
-        input_layout.addWidget(mic_btn)
+        input_layout.addWidget(self.mic_btn)
         input_layout.addWidget(send_btn)
         
         content_layout.addLayout(input_layout)
         
         # Область для сообщений (скрыта по умолчанию)
         self.scroll = QScrollArea()
-        self.scroll.setStyleSheet(f"background-color: {self.config.BG_WINDOW}; border: none;")
+        self.scroll.setStyleSheet(f"background-color: {self.config.CARD}; border: none;")
         self.scroll.setWidgetResizable(True)
         self.scroll.setMaximumHeight(0)
         self.scroll.setVisible(False)
@@ -149,6 +160,10 @@ class FloatingWidget(QWidget):
         self.setLayout(main_layout)
         self.setMaximumWidth(360)
         self.setMinimumHeight(60)
+
+        if self.voice_manager:
+            self.voice_manager.ready.connect(self._on_voice_ready)
+            self.voice_manager.error.connect(self._on_voice_error)
     
     def mousePressEvent(self, event):
         """Обработчик нажатия мыши для начала перетаскивания"""
@@ -200,7 +215,7 @@ class FloatingWidget(QWidget):
         
         # Отправляем агенту
         if self.agent_loop:
-            self.worker = AgentWorker(self.agent_loop, text)
+            self.worker = AgentWorker(self.agent_loop, text, confirm_broker=self.confirm_broker)
             self.worker.token_received.connect(self._on_token)
             self.worker.response_ready.connect(self._on_response_ready)
             self.worker.error_occurred.connect(lambda err: self._add_message(err, is_user=False))
@@ -243,7 +258,64 @@ class FloatingWidget(QWidget):
         """Ответ готов"""
         if hasattr(self, '_streaming_label'):
             delattr(self, '_streaming_label')
-    
+
+    def _on_mic_clicked(self):
+        """Нажатие на кнопку микрофона — push-to-talk"""
+        if not self.voice_manager:
+            self._add_message("❌ Голосовой ввод не настроен", is_user=False)
+            return
+
+        if self.listen_worker is not None:
+            return  # уже слушаем/грузимся
+
+        if not self.voice_manager.is_ready:
+            self._pending_listen = True
+            self.mic_btn.setText("⏳")
+            self.voice_manager.ensure_loaded()
+            return
+
+        self._start_listening()
+
+    def _start_listening(self):
+        stt = self.voice_manager.stt
+        if not stt or not stt.is_available():
+            self._add_message("❌ Микрофон недоступен", is_user=False)
+            self.mic_btn.setText("🎤")
+            return
+
+        self.mic_btn.setText("⏺")
+        self._expand()
+        self.listen_worker = ListenWorker(stt, max_duration=12)
+        self.listen_worker.text_ready.connect(self._on_text_recognized)
+        self.listen_worker.no_speech.connect(self._on_no_speech)
+        self.listen_worker.error.connect(self._on_listen_error)
+        self.listen_worker.start()
+
+    def _on_voice_ready(self):
+        if self._pending_listen:
+            self._pending_listen = False
+            self._start_listening()
+
+    def _on_voice_error(self, message: str):
+        self._pending_listen = False
+        self.mic_btn.setText("🎤")
+        self._add_message(f"❌ {message}", is_user=False)
+
+    def _on_text_recognized(self, text: str):
+        self.listen_worker = None
+        self.mic_btn.setText("🎤")
+        self.input_field.setText(text)
+        self.input_field.setFocus()
+
+    def _on_no_speech(self):
+        self.listen_worker = None
+        self.mic_btn.setText("🎤")
+
+    def _on_listen_error(self, message: str):
+        self.listen_worker = None
+        self.mic_btn.setText("🎤")
+        self._add_message(f"❌ {message}", is_user=False)
+
     def _expand(self):
         """Разворачивает виджет для показа сообщений"""
         if not self.is_expanded:

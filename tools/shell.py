@@ -27,26 +27,34 @@ class ShellTool:
     
     def __init__(self):
         self.description = (
-            "Выполняет shell/cmd команду и возвращает результат. "
-            "Требует подтверждение для деструктивных операций."
+            "Выполняет команду Windows и возвращает её реальный вывод.\n"
+            "      Параметры: command (строка), timeout (сек, по умолчанию 30), confirm.\n"
+            "      ВАЖНО: wmic в этой версии Windows УДАЛЁН — используй PowerShell.\n"
+            "      Видеокарта: <input>{\"command\": \"powershell -NoProfile -Command \\\"Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name\\\"\"}</input>\n"
+            "      Диски:      powershell -NoProfile -Command \"Get-CimInstance Win32_DiskDrive | Select-Object Model,Size\"\n"
+            "      Сеть:       ipconfig\n"
+            "      Годится для данных, которых нет в других инструментах.\n"
+            "      Опасные команды (del, format, shutdown…) требуют повторного вызова с \"confirm\": true."
         )
     
-    def execute(self, command: str, timeout: int = 30) -> str:
+    def execute(self, command: str, timeout: int = 30, confirm: bool = False) -> str:
         """
         Выполняет команду в shell.
-        
+
         Args:
             command: Команда для выполнения
             timeout: Максимальное время выполнения в секундах
-        
+            confirm: Подтверждение выполнения потенциально опасной команды
+
         Returns:
             Stdout + stderr результат
         """
         # Проверяем на деструктивные команды
-        if self._is_destructive(command):
+        if self._is_destructive(command) and not confirm:
             return (
-                "⚠️  Эта команда может быть опасной и требует подтверждения: "
-                f"'{command}'. Пожалуйста, используй инструмент для подтверждения."
+                "⚠️  Эта команда потенциально опасна и требует подтверждения пользователя: "
+                f"'{command}'. Спроси пользователя явно и, если он согласен, вызови "
+                "этот же инструмент повторно с параметром \"confirm\": true."
             )
         
         try:
@@ -55,6 +63,10 @@ class ShellTool:
                 shell=True,
                 capture_output=True,
                 text=True,
+                # Консоль Windows отдаёт вывод в OEM-кодировке (на русской системе cp866).
+                # Без этого русские сообщения превращаются в «­Ґ пў«пҐвбп ў­гваҐ­­Ґ©».
+                encoding="oem",
+                errors="replace",
                 timeout=timeout
             )
             
