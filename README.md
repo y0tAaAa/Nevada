@@ -1,79 +1,80 @@
 # Nevada
 
-**Русский** · [English](README.en.md)
+[Русский](README.md) · **English**
 
-Автономный desktop-ассистент для Windows на русском языке. Живёт в трее, понимает
-голос, управляет программами и отвечает **по реальным данным компьютера** —
-а не по догадкам.
+An autonomous desktop assistant for Windows. Lives in the system tray, understands
+voice, controls applications, and answers **from your computer's real data** —
+not from guesswork.
 
-> PyQt6 · Python 3.11+ · Windows 10/11 · любой OpenAI-совместимый провайдер модели
+> PyQt6 · Python 3.11+ · Windows 10/11 · any OpenAI-compatible model provider
 
----
-
-## Что умеет
-
-**Агент с настоящими инструментами.** Nevada не просто болтает: она запрашивает
-данные у системы, запускает программы и читает страницы — и отвечает по тому,
-что реально получила.
-
-| Инструмент | Что делает |
-|-----------|-----------|
-| `system` | Комплектующие (процессор, видеокарты, ОЗУ, матплата, диски), нагрузка, диски, процессы, время |
-| `app` | Список открытых окон, запуск программ, ввод текста в окна, горячие клавиши, поиск в браузере |
-| `research` | Поиск в интернете с **реальным чтением** страниц и ссылками на источники |
-| `file` | Чтение, запись, список, удаление файлов |
-| `shell` | Команды Windows |
-| `skill` | Готовые сценарии из папки `skills/` |
-
-**Навыки — сценарии обычным markdown-файлом.** Кладёте файл в `skills/`, и Nevada
-им пользуется. Код менять не нужно, перезапускать тоже. В комплекте: утренний
-дайджест, заметка в блокнот, проверка ПК, поиск в интернете, разбор темы.
-
-**Голос.** Распознавание речи локально (faster-whisper), озвучка ответов
-(pyttsx3, офлайн). Отдельный режим **Jarvis HUD** — круг у курсора: нажали,
-сказали, получили ответ голосом.
-
-**Интерфейс.** Frameless-окно с боковой навигацией, тёмная индиго-тема, страница
-«Команды» со списком возможностей и кликабельными примерами.
+The interface and built-in skills are in Russian — this is a Russian-language
+assistant. This file documents the project in English.
 
 ---
 
-## Главное в архитектуре: почему она не врёт
+## What it does
 
-Ассистент, который выдумывает характеристики вашего компьютера, бесполезен.
-В Nevada против этого стоит четыре независимых механизма — каждый закрывает свой
-способ соврать, и все они появились после реальных случаев вранья.
+**An agent with real tools.** Nevada doesn't just chat: it queries the system,
+launches programs and reads web pages — then answers from what it actually got back.
 
-1. **Настоящий агентный цикл.** Модель → вызов инструмента → выполнение →
-   **реальный вывод возвращается в модель** → ответ по фактам. Раньше результат
-   просто дописывался в конец, модель его не видела и сочиняла правдоподобные
-   числа.
+| Tool | What it does |
+|------|-------------|
+| `system` | Hardware (CPU, GPUs, RAM modules, motherboard, drives), load, disks, processes, time |
+| `app` | List open windows, launch programs, type into windows, send hotkeys, search in browser |
+| `research` | Web search that **actually reads** pages and cites sources |
+| `file` | Read, write, list, delete files |
+| `shell` | Windows commands |
+| `skill` | Ready-made scenarios from the `skills/` folder |
 
-2. **Стоп-последовательность на вызове.** Генерация обрывается сразу после
-   `<input>…`, поэтому дописать выдуманный «результат» в том же ответе физически
-   невозможно.
+**Skills are plain markdown files.** Drop a file into `skills/` and Nevada starts
+using it — no code changes, no restart. Included: morning digest, note to Notepad,
+PC check-up, web search, research a topic.
 
-3. **Чистая память.** В историю сохраняется только проза модели. Когда туда
-   попадали служебные блоки с выводом инструментов, модель считала их своей
-   репликой и начинала подделывать такие блоки сама.
+**Voice.** Local speech recognition (faster-whisper) and offline speech synthesis
+(pyttsx3). A separate **Jarvis HUD** mode: a ring near your cursor — click, speak,
+get a spoken answer.
 
-4. **Страж выдумок.** Если в ответе есть конкретные показатели (время, аптайм,
-   загрузка CPU/RAM, железо), а инструменты не вызывались — цикл останавливает
-   модель, сообщает об этом пользователю и требует проверить данные.
-
-**Подтверждение опасных действий — настоящее.** Гейт стоит в агентном цикле,
-а не внутри инструментов: модель может сама подставить `"confirm": true`,
-но выполнение всё равно ждёт вашего клика в диалоге. Под подтверждением ввод
-текста в окна, горячие клавиши, запись и удаление файлов, деструктивные команды.
-
-**Ввод в чужие окна проверяется.** Windows не отдаёт фокус фоновому процессу, и
-раньше нажатия молча улетали в активное приложение. Теперь фокус проверяется
-через `GetForegroundWindow`, и если окно не активировалось — нажатия не
-отправляются вовсе.
+**Interface.** Frameless window with sidebar navigation, dark indigo theme, and a
+"Commands" page listing what Nevada can do with clickable examples.
 
 ---
 
-## Установка
+## The core design goal: why it doesn't make things up
+
+An assistant that invents your computer's specs is worse than useless. Nevada has
+four independent defenses against this — each closes a different way of lying, and
+every one of them exists because of an actual incident.
+
+1. **A real agent loop.** Model → tool call → execution → **the real output goes
+   back into the model** → answer grounded in facts. Previously the result was just
+   appended to the end of the text: the model never saw it and invented
+   plausible-looking numbers instead.
+
+2. **A stop sequence on the tool call.** Generation halts right after `<input>…`,
+   so fabricating a "result" in the same reply is physically impossible.
+
+3. **Clean memory.** Only the model's own prose is stored. When tool-output blocks
+   ended up in history, the model treated them as its own words and started forging
+   such blocks on its own.
+
+4. **A fabrication guard.** If a reply contains concrete metrics (time, uptime,
+   CPU/RAM load, hardware) while no tool was called, the loop stops the model, tells
+   the user, and forces it to verify the data.
+
+**Confirmation of dangerous actions is real.** The gate lives in the agent loop, not
+inside the tools: the model can set `"confirm": true` itself, but execution still
+waits for your click in a dialog. Gated actions: typing into windows, hotkeys,
+writing and deleting files, destructive shell commands.
+
+**Typing into other windows is verified.** Windows won't hand focus to a background
+process, so keystrokes used to silently land in whatever app was active. Focus is
+now checked via `GetForegroundWindow`, and if the target window didn't activate,
+no keystrokes are sent at all.
+
+---
+
+## Installation
 
 ```bash
 git clone https://github.com/y0tAaAa/Nevada.git
@@ -81,103 +82,102 @@ cd Nevada
 pip install -r requirements.txt
 ```
 
-## Настройка
+## Configuration
 
-Скопируйте шаблон и впишите ключ:
+Copy the template and add your key:
 
 ```bash
 copy .env.example .env
 ```
 
-Провайдер переключается одной строкой — код менять не нужно.
+Switching providers is a one-line change — no code edits.
 
 **Groq** — [console.groq.com/keys](https://console.groq.com/keys):
 
 ```env
 NEVADA_PROVIDER=groq
-GROQ_API_KEY=gsk_ваш_ключ
+GROQ_API_KEY=gsk_your_key
 NEVADA_MODEL=llama-3.3-70b-versatile
 ```
 
-**NVIDIA NIM** — [build.nvidia.com](https://build.nvidia.com), есть бесплатные кредиты:
+**NVIDIA NIM** — [build.nvidia.com](https://build.nvidia.com), free credits available:
 
 ```env
 NEVADA_PROVIDER=nvidia
-NVIDIA_API_KEY=nvapi-ваш_ключ
+NVIDIA_API_KEY=nvapi-your_key
 NEVADA_MODEL=meta/llama-3.3-70b-instruct
 ```
 
-**Свой endpoint** (например, локальная Ollama):
+**Your own endpoint** (a local Ollama, for example):
 
 ```env
 NEVADA_API_BASE=http://localhost:11434/v1
 NEVADA_MODEL=qwen2.5:7b
 ```
 
-> **О выборе модели.** Берите обычные instruct-модели. Reasoning-модели проверены
-> и для этого агента не подходят: под длинным системным промптом они начинают
-> рассуждать вслух прямо в ответе и не доходят до вызова инструмента.
-> Модели меняются и отключаются провайдерами — при несовпадении имени модели
-> с провайдером Nevada предупредит об этом при старте.
+> **On choosing a model.** Use regular instruct models. Reasoning models were tested
+> and don't fit this agent: under a long system prompt they start thinking out loud
+> in the reply itself and never reach the tool call. Providers also retire models —
+> if the model name doesn't match the provider, Nevada warns you at startup.
 
-## Запуск
+## Running
 
 ```bash
 python main.py
 ```
 
-Приложение живёт в трее: чат, дашборд, настройки, Jarvis HUD, выход.
-Глобальная горячая клавиша по умолчанию — `Ctrl+Shift+Space`.
+The app lives in the tray: chat, dashboard, settings, Jarvis HUD, exit.
+Default global hotkey — `Ctrl+Shift+Space`.
 
-## Сборка в .exe
+## Building an .exe
 
 ```bash
 python build.py
 ```
 
-Готовая сборка появится в `dist/Nevada/`. Рядом с `Nevada.exe` положите свой
-`.env` — приложение ищет его именно там.
+The build appears in `dist/Nevada/`. Put your `.env` next to `Nevada.exe` — that's
+where the app looks for it.
 
-> Рабочий `.env` намеренно **не** копируется в сборку: иначе ваш API-ключ уедет
-> вместе с папкой при любой передаче.
+> Your working `.env` is deliberately **not** copied into the build: otherwise your
+> API key would travel with the folder every time you share it.
 
 ---
 
-## Тесты
+## Tests
 
 ```bash
-python tests/run_tests.py          # 11 офлайн-тестов: без сети, ключей и окон
-python tests/run_tests.py --live   # живые: сеть, токены провайдера, окна
+python tests/run_tests.py          # 11 offline tests: no network, keys or windows
+python tests/run_tests.py --live   # live: network, provider tokens, real windows
 ```
 
-Тесты — обычные скрипты, печатающие `[OK ]` / `[FAIL]` и строку `ИТОГ:`.
-Раннер требует эту строку: обрезанный или молча упавший файл тоже завершается
-с кодом 0, и без такой проверки давал бы ложное «зелёное».
+Tests are plain scripts printing `[OK ]` / `[FAIL]` and a final `ИТОГ:` line.
+The runner requires that line: a truncated or silently crashed file also exits with
+code 0, and without this check it would report a false green.
 
-Подробности — в [tests/README.md](tests/README.md).
+Details in [tests/README.md](tests/README.md).
 
 ---
 
-## Структура
+## Layout
 
 ```
-agent/     цикл, промпт, парсер tool call, QThread-воркер
-tools/     инструменты агента + реестр
-skills/    навыки-сценарии (.md) и их загрузчик
-ui/        окна: главное, HUD, плавающее, команды, подтверждение
-voice/     распознавание речи, синтез, менеджер с ленивой загрузкой
-memory/    история диалогов в SQLite
-scheduler/ планировщик задач
-tests/     тесты и раннер
+agent/     loop, prompt, tool-call parser, QThread worker
+tools/     agent tools + registry
+skills/    skill scenarios (.md) and their loader
+ui/        windows: main, HUD, floating, commands, confirmation
+voice/     speech recognition, synthesis, lazy-loading manager
+memory/    conversation history in SQLite
+scheduler/ task planner
+tests/     tests and runner
 ```
 
-Подробное описание каждого файла — в [NEVADA_PROJECT.md](NEVADA_PROJECT.md).
+A per-file breakdown lives in [NEVADA_PROJECT.md](NEVADA_PROJECT.md) (in Russian).
 
-## Зависимости
+## Dependencies
 
 PyQt6, openai, python-dotenv, faster-whisper, sounddevice, pyttsx3, keyboard,
 pywin32, requests, apscheduler, psutil, pyinstaller.
 
-## Лицензия
+## License
 
-Не указана.
+Not specified.
