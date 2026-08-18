@@ -29,20 +29,42 @@ def build_with_pyinstaller():
         icon_path = assets_path / "nevada.ico"
         icon_arg = f"--icon={icon_path}" if icon_path.exists() else ""
         
+        project = Path(__file__).parent
+        sep = os.pathsep  # PyInstaller ждёт ';' на Windows, ':' на *nix
+
         cmd = [
             sys.executable, "-m", "PyInstaller",
-            "--onefile",
+            # onedir, а не onefile: со всеми зависимостями сборка весит ~400 МБ,
+            # и onefile распаковывал бы их во временную папку при каждом запуске
+            "--onedir",
             "--windowed",
+            "--noconfirm",
             "--name", "Nevada",
             "--distpath", "./dist",
             "--workpath", "./build",
             "--specpath", "./build",
+            # данные, которые нужны приложению во время работы
+            f"--add-data={project / 'skills'}{sep}skills",
+            f"--add-data={project / 'assets'}{sep}assets",
             "--hidden-import=PyQt6",
             "--hidden-import=faster_whisper",
             "--hidden-import=sounddevice",
             "--hidden-import=keyboard",
             "--hidden-import=psutil",
             "--hidden-import=apscheduler",
+            # pywin32 и синтез речи PyInstaller сам не находит
+            "--hidden-import=win32clipboard",
+            "--hidden-import=win32gui",
+            "--hidden-import=win32con",
+            "--hidden-import=win32api",
+            "--hidden-import=win32process",
+            "--hidden-import=pyttsx3.drivers",
+            "--hidden-import=pyttsx3.drivers.sapi5",
+            "--hidden-import=comtypes",
+            # лишнее в сборке ни к чему
+            "--exclude-module=tkinter",
+            "--exclude-module=matplotlib",
+            "--exclude-module=pip",
         ]
         
         if icon_arg:
@@ -54,7 +76,7 @@ def build_with_pyinstaller():
         
         if result.returncode == 0:
             print("[OK] Сборка завершена!")
-            exe_path = Path("dist") / "Nevada.exe"
+            exe_path = Path("dist") / "Nevada" / "Nevada.exe"
             
             if exe_path.exists():
                 print(f"[PACKAGE] Nevada.exe создана: {exe_path}")
@@ -228,7 +250,7 @@ def create_desktop_shortcut():
     """Создаёт ярлык Nevada.exe на рабочем столе"""
     
     try:
-        exe_path = Path("dist") / "Nevada.exe"
+        exe_path = Path("dist") / "Nevada" / "Nevada.exe"
         
         if not exe_path.exists():
             print("[WARNING] Nevada.exe не найден")
